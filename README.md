@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# mixamo2three
 
-## Getting Started
+A browser-based tool for converting Mixamo FBX files to GLB format for use in Three.js applications. Load character models, preview animations, and export optimized files for your 3D web projects.
 
-First, run the development server:
+## Live Demo
+
+Try it out: [https://vibe-stack.github.io/mixamo23](https://vibe-stack.github.io/mixamo23)
+
+## Features
+
+- **FBX Import**: Load Mixamo character models and animations in FBX format
+- **Real-time Preview**: View models and animations in an interactive 3D viewport
+- **Animation Management**: Browse, select, and preview multiple animations
+- **GLB Export**: Export models with animations to optimized GLB format
+- **Mixamo Fixes**: Automatic fixes for common Mixamo FBX quirks
+- **Settings Control**: Adjust playback speed, lighting, and viewer settings
+
+## Installation
+
+### Prerequisites
+
+- Node.js 18+ and pnpm installed
+
+### Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+# Clone the repository
+git clone https://github.com/vibe-stack/mixamo23.git
+cd mixamo23
+
+# Install dependencies
+pnpm install
+
+# Start development server
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Usage
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Upload Model**: Drag and drop or select a Mixamo FBX character model
+2. **Add Animations**: Upload additional FBX animation files
+3. **Preview**: Click animations in the list to preview them
+4. **Adjust Settings**: Configure playback speed, lighting, and other options
+5. **Export**: Download your model with animations as a GLB file
 
-## Learn More
+## Tech Stack
 
-To learn more about Next.js, take a look at the following resources:
+- Next.js 16
+- React Three Fiber
+- Three.js
+- Zustand (state management)
+- TypeScript
+- Tailwind CSS
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Building for Production
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+pnpm build
+pnpm start
+```
 
-## Deploy on Vercel
+## License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT License - see [LICENSE](LICENSE) file for details.
