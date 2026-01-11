@@ -1,26 +1,45 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0f0f0f;
+  --foreground: #e5e5e5;
+  --surface: #1a1a1a;
+  --surface-hover: #252525;
+  --muted: #737373;
+  --emerald: #10b981;
+  --emerald-hover: #059669;
+  --emerald-muted: #065f46;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-muted: var(--muted);
+  --color-emerald: var(--emerald);
+  --color-emerald-hover: var(--emerald-hover);
+  --color-emerald-muted: var(--emerald-muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-hover) transparent;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+input[type="text"] {
+  background: transparent;
+  outline: none;
+}
+
+input[type="text"]:focus {
+  outline: none;
 }
