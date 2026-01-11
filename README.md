@@ -19,7 +19,7 @@ Try it out: [https://vibe-stack.github.io/mixamo23](https://vibe-stack.github.io
 
 ### Prerequisites
 
-- Node.js 18+ and pnpm installed
+- Node.js 18+ and npm installed
 
 ### Setup
 
@@ -29,10 +29,10 @@ git clone https://github.com/vibe-stack/mixamo23.git
 cd mixamo23
 
 # Install dependencies
-pnpm install
+npm install
 
 # Start development server
-pnpm dev
+npm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
@@ -57,8 +57,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ## Building for Production
 
 ```bash
-pnpm build
-pnpm start
+npm build
+npm start
 ```
 
 ## License
