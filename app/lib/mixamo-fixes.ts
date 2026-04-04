@@ -1,5 +1,108 @@
-import { Bone, Skeleton, SkinnedMesh, AnimationClip, KeyframeTrack, VectorKeyframeTrack } from 'three'
+import {
+  Bone,
+  Skeleton,
+  SkinnedMesh,
+  AnimationClip,
+  KeyframeTrack,
+  Quaternion,
+  QuaternionKeyframeTrack,
+  Vector3,
+  VectorKeyframeTrack,
+} from 'three'
 import type { Group } from 'three'
+
+const mixamoRootBoneNames = ['mixamorigHips', 'Hips', 'mixamorig:Hips', 'Root', 'root']
+
+function findMixamoRootBone(model: Group): Bone | null {
+  let rootBone: Bone | null = null
+
+  model.traverse((child) => {
+    if (rootBone || !(child instanceof Bone)) return
+    if (mixamoRootBoneNames.includes(child.name)) {
+      rootBone = child
+    }
+  })
+
+  return rootBone
+}
+
+function getNonBoneAncestorQuaternion(object: Bone): Quaternion | null {
+  const ancestors: Quaternion[] = []
+  let current = object.parent
+
+  while (current) {
+    if (!(current instanceof Bone)) {
+      ancestors.push(current.quaternion.clone())
+    }
+    current = current.parent
+  }
+
+  if (ancestors.length === 0) return null
+
+  const correction = new Quaternion()
+  for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+    correction.multiply(ancestors[index])
+  }
+
+  return correction.angleTo(new Quaternion()) > 1e-5 ? correction : null
+}
+
+function isMixamoRootTrack(trackName: string, property: 'position' | 'quaternion'): boolean {
+  return mixamoRootBoneNames.some(
+    (name) => trackName === `${name}.${property}` || trackName.endsWith(`.${name}.${property}`)
+  )
+}
+
+export function adaptAnimationToModelBasis(clip: AnimationClip, model: Group): AnimationClip {
+  model.updateMatrixWorld(true)
+
+  const rootBone = findMixamoRootBone(model)
+  if (!rootBone) return clip
+
+  const correction = getNonBoneAncestorQuaternion(rootBone)
+  if (!correction) return clip
+
+  const inverseCorrection = correction.clone().invert()
+  const adaptedClip = clip.clone()
+
+  adaptedClip.tracks = adaptedClip.tracks.map((track: KeyframeTrack) => {
+    if (isMixamoRootTrack(track.name, 'position') && track instanceof VectorKeyframeTrack) {
+      const values = track.values.slice()
+      const vector = new Vector3()
+
+      for (let index = 0; index < values.length; index += 3) {
+        vector.set(values[index], values[index + 1], values[index + 2])
+        vector.applyQuaternion(inverseCorrection)
+        values[index] = vector.x
+        values[index + 1] = vector.y
+        values[index + 2] = vector.z
+      }
+
+      return new VectorKeyframeTrack(track.name, Array.from(track.times), Array.from(values))
+    }
+
+    if (isMixamoRootTrack(track.name, 'quaternion') && track instanceof QuaternionKeyframeTrack) {
+      const values = track.values.slice()
+      const quaternion = new Quaternion()
+
+      for (let index = 0; index < values.length; index += 4) {
+        quaternion.set(values[index], values[index + 1], values[index + 2], values[index + 3])
+        quaternion.premultiply(inverseCorrection)
+        quaternion.normalize()
+        values[index] = quaternion.x
+        values[index + 1] = quaternion.y
+        values[index + 2] = quaternion.z
+        values[index + 3] = quaternion.w
+      }
+
+      return new QuaternionKeyframeTrack(track.name, Array.from(track.times), Array.from(values))
+    }
+
+    return track
+  })
+
+  return adaptedClip
+}
 
 /**
  * Applies root bone fix for engines that require a proper root bone hierarchy.
@@ -73,11 +176,9 @@ export function makeAnimationInPlace(clip: AnimationClip): AnimationClip {
   const inPlaceClip = clip.clone()
   
   // Common root bone names in Mixamo rigs
-  const rootBoneNames = ['mixamorigHips', 'Hips', 'mixamorig:Hips', 'Root', 'root']
-  
   inPlaceClip.tracks = inPlaceClip.tracks.map((track: KeyframeTrack) => {
     // Check if this track affects a root bone position
-    const isRootPositionTrack = rootBoneNames.some(
+    const isRootPositionTrack = mixamoRootBoneNames.some(
       (name) => track.name.includes(name) && track.name.endsWith('.position')
     )
     

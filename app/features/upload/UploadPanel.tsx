@@ -20,6 +20,7 @@ export function UploadPanel() {
         <h2 className="text-sm font-medium text-muted mb-2">Base Model</h2>
         <DropZone
           onDrop={handleModelUpload}
+          accept=".fbx,.glb"
           disabled={isLoadingModel}
           className="p-6 rounded-xl bg-surface hover:bg-surface-hover text-center"
         >
@@ -36,7 +37,7 @@ export function UploadPanel() {
             </div>
           ) : (
             <div className="text-sm text-muted">
-              <p>Drop rigged FBX here</p>
+              <p>Drop rigged FBX or GLB here</p>
               <p className="text-xs mt-1">or click to browse</p>
             </div>
           )}

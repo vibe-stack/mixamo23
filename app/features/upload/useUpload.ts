@@ -2,11 +2,32 @@
 
 import { useCallback, useState } from 'react'
 import { useStore } from '@/app/store'
-import { loadFBX, generateId, getFileNameWithoutExtension } from '@/app/lib'
+import { adaptAnimationToModelBasis, loadFBX, loadGLB, generateId, getFileNameWithoutExtension } from '@/app/lib'
 import type { AnimationData } from '@/app/store'
+import type { AnimationClip } from 'three'
+
+const MODEL_EXTENSIONS = ['.fbx', '.glb'] as const
+
+function getFileExtension(filename: string): string {
+  const extensionIndex = filename.lastIndexOf('.')
+  if (extensionIndex === -1) return ''
+  return filename.toLowerCase().slice(extensionIndex)
+}
+
+function isSupportedModelFile(filename: string): boolean {
+  return MODEL_EXTENSIONS.includes(getFileExtension(filename) as (typeof MODEL_EXTENSIONS)[number])
+}
+
+function isGLBFile(filename: string): boolean {
+  return getFileExtension(filename) === '.glb'
+}
+
+async function loadModelFile(file: File) {
+  return getFileExtension(file.name) === '.glb' ? loadGLB(file) : loadFBX(file)
+}
 
 export function useUpload() {
-  const { setModel, addAnimation, model } = useStore()
+  const { setModel, addAnimation, model, file: modelFile } = useStore()
   const [isLoadingModel, setIsLoadingModel] = useState(false)
   const [isLoadingAnimations, setIsLoadingAnimations] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -16,8 +37,8 @@ export function useUpload() {
       if (!files || files.length === 0) return
 
       const file = files[0]
-      if (!file.name.toLowerCase().endsWith('.fbx')) {
-        setError('Please upload an FBX file')
+      if (!isSupportedModelFile(file.name)) {
+        setError('Please upload an FBX or GLB file')
         return
       }
 
@@ -25,12 +46,12 @@ export function useUpload() {
       setError(null)
 
       try {
-        const result = await loadFBX(file)
+        const result = await loadModelFile(file)
         const modelName = getFileNameWithoutExtension(file.name)
         setModel(result.scene, file, modelName)
 
         // Add any embedded animations from the base model
-        result.animations.forEach((clip) => {
+        result.animations.forEach((clip: AnimationClip) => {
           // Use file name instead of clip.name (which is often "mixamo.com")
           const animName = getFileNameWithoutExtension(file.name)
           const animData: AnimationData = {
@@ -43,7 +64,7 @@ export function useUpload() {
           addAnimation(animData)
         })
       } catch (err) {
-        setError('Failed to load FBX model')
+        setError('Failed to load model file')
         console.error(err)
       } finally {
         setIsLoadingModel(false)
@@ -71,14 +92,18 @@ export function useUpload() {
           if (!file.name.toLowerCase().endsWith('.fbx')) continue
 
           const result = await loadFBX(file)
+          const shouldAdaptToModelBasis = !!model && !!modelFile && isGLBFile(modelFile.name)
 
           result.animations.forEach((clip) => {
             // Use file name instead of clip.name (which is often "mixamo.com")
             const animName = getFileNameWithoutExtension(file.name)
+            const adaptedClip = shouldAdaptToModelBasis && model
+              ? adaptAnimationToModelBasis(clip, model)
+              : clip
             const animData: AnimationData = {
               id: generateId(),
               name: animName,
-              clip: Object.assign(clip.clone(), { name: animName }),
+              clip: Object.assign(adaptedClip.clone(), { name: animName }),
               file,
               selected: true,
             }
@@ -92,7 +117,7 @@ export function useUpload() {
         setIsLoadingAnimations(false)
       }
     },
-    [model, addAnimation]
+    [model, modelFile, addAnimation]
   )
 
   const clearError = useCallback(() => setError(null), [])

@@ -1,4 +1,5 @@
 export { loadFBX, type FBXLoadResult } from './fbx-loader'
+export { loadGLB, type GLBLoadResult } from './glb-loader'
 export { exportToGLB, downloadBlob, exportAndDownload, exportAnimationGLB, createSkeletonOnly, applyAnimationPose, exportWithBasePose } from './glb-exporter'
 export { generateId, getFileNameWithoutExtension, formatFileName, type FileNameOptions } from './utils'
-export { applyRootBoneFix, makeAnimationInPlace, updateAnimationForRootBoneFix } from './mixamo-fixes'
+export { adaptAnimationToModelBasis, applyRootBoneFix, makeAnimationInPlace, updateAnimationForRootBoneFix } from './mixamo-fixes'

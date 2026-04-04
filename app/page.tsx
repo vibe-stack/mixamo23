@@ -10,13 +10,13 @@ export default function Home() {
   return (
     <main className="h-screen w-screen flex overflow-hidden">
       {/* Left Sidebar */}
-      <aside className="w-72 flex-shrink-0 bg-surface/50 p-4 flex flex-col gap-6 overflow-y-auto">
+      <aside className="w-72 shrink-0 bg-surface/50 p-4 flex flex-col gap-6 overflow-y-auto">
         <header>
           <h1 className="text-lg font-semibold text-foreground">
             mixamo2three
           </h1>
           <p className="text-xs text-muted mt-1">
-            Convert FBX models and animations
+            Convert Mixamo models and animations to GLB
           </p>
         </header>
 
@@ -33,7 +33,7 @@ export default function Home() {
       </section>
 
       {/* Right Sidebar */}
-      <aside className="w-72 flex-shrink-0 bg-surface/50 p-4 flex flex-col gap-6 overflow-y-auto">
+      <aside className="w-72 shrink-0 bg-surface/50 p-4 flex flex-col gap-6 overflow-y-auto">
         <ExportPanel />
 
         <div className="h-px bg-surface-hover" />

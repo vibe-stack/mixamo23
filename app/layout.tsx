@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Mixamo to GLB Converter",
-  description: "Convert Mixamo FBX files to GLB format with animation support",
+  description: "Convert Mixamo FBX or GLB characters and FBX animations to GLB format",
 };
 
 export default function RootLayout({
