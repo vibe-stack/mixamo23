@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react'
 import { useStore } from '@/app/store'
-import { adaptAnimationToModelBasis, loadFBX, loadGLB, generateId, getFileNameWithoutExtension } from '@/app/lib'
+import { adaptAnimationToModelBasis, loadFBX, loadGLB, generateId, getFileNameWithoutExtension, retargetAnimationToModel } from '@/app/lib'
 import type { AnimationData } from '@/app/store'
 import type { AnimationClip } from 'three'
 
@@ -97,9 +97,12 @@ export function useUpload() {
           result.animations.forEach((clip) => {
             // Use file name instead of clip.name (which is often "mixamo.com")
             const animName = getFileNameWithoutExtension(file.name)
-            const adaptedClip = shouldAdaptToModelBasis && model
-              ? adaptAnimationToModelBasis(clip, model)
-              : clip
+            const retargetedClip = model ? retargetAnimationToModel(clip, result.scene, model) : null
+            const adaptedClip = retargetedClip ?? (
+              shouldAdaptToModelBasis && model
+                ? adaptAnimationToModelBasis(clip, model)
+                : clip
+            )
             const animData: AnimationData = {
               id: generateId(),
               name: animName,

@@ -1,6 +1,7 @@
 import {
   Bone,
   Skeleton,
+  SkeletonHelper,
   SkinnedMesh,
   AnimationClip,
   KeyframeTrack,
@@ -10,8 +11,11 @@ import {
   VectorKeyframeTrack,
 } from 'three'
 import type { Group } from 'three'
+import { clone as cloneSkeletonAware, retargetClip } from 'three/examples/jsm/utils/SkeletonUtils.js'
 
 const mixamoRootBoneNames = ['mixamorigHips', 'Hips', 'mixamorig:Hips', 'Root', 'root']
+
+type RetargetableGroup = Group & { skeleton: Skeleton }
 
 function findMixamoRootBone(model: Group): Bone | null {
   let rootBone: Bone | null = null
@@ -51,6 +55,202 @@ function isMixamoRootTrack(trackName: string, property: 'position' | 'quaternion
   return mixamoRootBoneNames.some(
     (name) => trackName === `${name}.${property}` || trackName.endsWith(`.${name}.${property}`)
   )
+}
+
+function normalizeBoneName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+function collectBones(model: Group): Bone[] {
+  const bones: Bone[] = []
+
+  model.traverse((child) => {
+    if (child instanceof Bone) {
+      bones.push(child)
+    }
+  })
+
+  return bones
+}
+
+function getSkeletonFromBones(model: Group): Skeleton | null {
+  const bones = collectBones(model)
+  if (bones.length === 0) return null
+  return new Skeleton(bones)
+}
+
+function createRetargetableClone(model: Group): Group | null {
+  const clone = cloneSkeletonAware(model) as Group
+
+  clone.updateMatrixWorld(true)
+
+  return clone
+}
+
+function getPrimarySkinnedMesh(model: Group): SkinnedMesh | null {
+  let skinnedMesh: SkinnedMesh | null = null
+
+  model.traverse((child) => {
+    if (skinnedMesh || !(child instanceof SkinnedMesh) || !child.skeleton) return
+    skinnedMesh = child
+  })
+
+  return skinnedMesh
+}
+
+function getSkeletonFromModel(model: Group): Skeleton | null {
+  const skinnedMesh = getPrimarySkinnedMesh(model)
+  if (skinnedMesh?.skeleton) return skinnedMesh.skeleton
+
+  return getSkeletonFromBones(model)
+}
+
+function createSourceRetargetRoot(model: Group): RetargetableGroup | null {
+  const helper = new SkeletonHelper(model)
+  const skeleton = helper.bones.length > 0 ? new Skeleton(helper.bones) : getSkeletonFromModel(model)
+
+  if (!skeleton) return null
+
+  const source = model as RetargetableGroup
+  source.skeleton = skeleton
+  source.updateMatrixWorld(true)
+
+  return source
+}
+
+function findHipBoneName(skeleton: Skeleton): string | null {
+  const exactMatch = mixamoRootBoneNames.find((name) => skeleton.getBoneByName(name) !== undefined)
+  if (exactMatch) return exactMatch
+
+  const normalizedHipNames = new Set(mixamoRootBoneNames.map(normalizeBoneName))
+
+  for (const bone of skeleton.bones) {
+    if (normalizedHipNames.has(normalizeBoneName(bone.name))) {
+      return bone.name
+    }
+  }
+
+  return null
+}
+
+function findBoneByNormalizedName(skeleton: Skeleton, names: string[]): Bone | null {
+  const normalizedNames = new Set(names.map(normalizeBoneName))
+
+  for (const bone of skeleton.bones) {
+    if (normalizedNames.has(normalizeBoneName(bone.name))) {
+      return bone
+    }
+  }
+
+  return null
+}
+
+function deriveRetargetScale(
+  targetSkeleton: Skeleton,
+  sourceSkeleton: Skeleton,
+  nameMap: Record<string, string>
+): number {
+  const sourceHipName = findHipBoneName(sourceSkeleton)
+  if (!sourceHipName) return 1
+
+  const targetHipName = Object.entries(nameMap).find(([, sourceName]) => sourceName === sourceHipName)?.[0]
+  const sourceHip = sourceSkeleton.getBoneByName(sourceHipName) ?? findBoneByNormalizedName(sourceSkeleton, [sourceHipName])
+  const targetHip = (targetHipName ? targetSkeleton.getBoneByName(targetHipName) : null)
+    ?? findBoneByNormalizedName(targetSkeleton, mixamoRootBoneNames)
+
+  if (!sourceHip || !targetHip) return 1
+
+  const sourceDistance = Math.abs(sourceHip.position.y)
+  const targetDistance = Math.abs(targetHip.position.y)
+
+  if (sourceDistance < 1e-5 || targetDistance < 1e-5) return 1
+
+  const scale = targetDistance / sourceDistance
+  return Number.isFinite(scale) && scale > 0 ? scale : 1
+}
+
+function buildBoneNameMap(targetSkeleton: Skeleton, sourceSkeleton: Skeleton): Record<string, string> {
+  const nameMap: Record<string, string> = {}
+  const sourceByName = new Map<string, string>()
+  const sourceByNormalizedName = new Map<string, string>()
+  const duplicatedNormalizedNames = new Set<string>()
+
+  for (const bone of sourceSkeleton.bones) {
+    sourceByName.set(bone.name, bone.name)
+
+    const normalized = normalizeBoneName(bone.name)
+    if (sourceByNormalizedName.has(normalized)) {
+      duplicatedNormalizedNames.add(normalized)
+    } else {
+      sourceByNormalizedName.set(normalized, bone.name)
+    }
+  }
+
+  for (const bone of targetSkeleton.bones) {
+    const exactMatch = sourceByName.get(bone.name)
+    if (exactMatch) {
+      nameMap[bone.name] = exactMatch
+      continue
+    }
+
+    const normalized = normalizeBoneName(bone.name)
+    if (!duplicatedNormalizedNames.has(normalized)) {
+      const normalizedMatch = sourceByNormalizedName.get(normalized)
+      if (normalizedMatch) {
+        nameMap[bone.name] = normalizedMatch
+      }
+    }
+  }
+
+  return nameMap
+}
+
+function normalizeRetargetedTrackNames(clip: AnimationClip): AnimationClip {
+  const normalizedClip = clip.clone()
+
+  normalizedClip.tracks = normalizedClip.tracks.map((track: KeyframeTrack) => {
+    const match = /^\.bones\[([^\]]+)\]\.(position|quaternion)$/.exec(track.name)
+    if (!match) return track
+
+    const renamedTrack = track.clone()
+    renamedTrack.name = `${match[1]}.${match[2]}`
+    return renamedTrack
+  })
+
+  return normalizedClip
+}
+
+export function retargetAnimationToModel(
+  clip: AnimationClip,
+  sourceModel: Group,
+  targetModel: Group
+): AnimationClip | null {
+  const sourceRoot = createSourceRetargetRoot(sourceModel)
+  const targetRoot = createRetargetableClone(targetModel)
+
+  if (!sourceRoot || !targetRoot) return null
+
+  const targetSkeleton = getSkeletonFromModel(targetRoot)
+  if (!targetSkeleton) return null
+
+  const targetObject = (getPrimarySkinnedMesh(targetRoot) as RetargetableGroup | null)
+    ?? Object.assign(targetRoot as RetargetableGroup, { skeleton: targetSkeleton })
+
+  const names = buildBoneNameMap(targetSkeleton, sourceRoot.skeleton)
+  if (Object.keys(names).length === 0) return null
+
+  const hip = findHipBoneName(sourceRoot.skeleton) ?? mixamoRootBoneNames[0]
+  const scale = deriveRetargetScale(targetSkeleton, sourceRoot.skeleton, names)
+  const retargetedClip = retargetClip(targetObject, sourceRoot.skeleton, clip, {
+    names,
+    hip,
+    scale,
+  })
+
+  const normalizedClip = normalizeRetargetedTrackNames(retargetedClip)
+  normalizedClip.name = clip.name
+
+  return normalizedClip
 }
 
 export function adaptAnimationToModelBasis(clip: AnimationClip, model: Group): AnimationClip {
