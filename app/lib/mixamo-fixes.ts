@@ -160,8 +160,17 @@ function deriveRetargetScale(
 
   if (!sourceHip || !targetHip) return 1
 
-  const sourceDistance = Math.abs(sourceHip.position.y)
-  const targetDistance = Math.abs(targetHip.position.y)
+  // Use world Y position so that any parent-object scale/translation applied to
+  // the armature node (common in Mixamo FBX exports) is accounted for.  Local
+  // position alone varies between animation FBXs even for the same character,
+  // causing a different scale per animation and inconsistent Y placement.
+  const sourceWorldPos = new Vector3()
+  sourceHip.getWorldPosition(sourceWorldPos)
+  const targetWorldPos = new Vector3()
+  targetHip.getWorldPosition(targetWorldPos)
+
+  const sourceDistance = Math.abs(sourceWorldPos.y)
+  const targetDistance = Math.abs(targetWorldPos.y)
 
   if (sourceDistance < 1e-5 || targetDistance < 1e-5) return 1
 
